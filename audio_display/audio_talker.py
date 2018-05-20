@@ -2,7 +2,10 @@ from random import randint
 import subprocess
 
 def update_text(num_people):
-	return "'There have been {} people in the past minute'".format(num_people)
+	if num_people == 1:
+		return "'There is {} people in the view.'".format(num_people)
+	else:
+		return "'There are {} people in the view.'".format(num_people)
 
 def audio_effect(num_people):
 	text = update_text(num_people)
