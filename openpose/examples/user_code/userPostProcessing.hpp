@@ -22,6 +22,12 @@ namespace op
     {
         std::string pipe_name;
         int fd;
+        std::string roll_text;
+        int font_face;
+        double font_scale;
+        int thickness;
+        int text_offset;
+
 
     public:
         /**
@@ -48,6 +54,29 @@ namespace op
         /**
          * Description of your variable here.
          */
+
+        void addText(cv::Mat &image, int num_people) {
+            int baseline = 0;
+            cv::Size text_size = cv::getTextSize(roll_text, font_face, font_scale, thickness, &baseline);
+            baseline += thickness;
+            cv::Mat base_image = cv::Mat::zeros(cv::Size(text_size.width+2*image.cols+10, text_size.height+10), CV_8UC3);
+            cv::Point text_org(image.cols, text_size.height);
+
+            image(cv::Rect(0, 0, image.cols, base_image.rows)).copyTo(
+                    base_image(cv::Rect(text_offset, 0, image.cols, base_image.rows)));
+            cv::putText(base_image, roll_text, text_org, font_face, font_scale, cv::Scalar::all(255), thickness, 8);
+            base_image(cv::Rect(text_offset, 0, image.cols, base_image.rows)).copyTo(
+                    image(cv::Rect(0, 0, image.cols, base_image.rows)));
+
+            text_offset += 5;
+            if (text_offset > text_size.width+image.cols) {
+                text_offset = 0;
+            }
+
+            std::string people_text = "People: " + std::to_string(num_people);
+            text_org = cv::Point(0, image.rows-20);
+            cv::putText(image, people_text, text_org, font_face, font_scale, cv::Scalar::all(255), thickness, 8);
+        }
         // bool mSomeVariableHere;
     };
 }
@@ -59,11 +88,19 @@ namespace op
 // Implementation
 namespace op
 {
-    UserPostProcessing::UserPostProcessing(): pipe_name("/tmp/mypipe.fifo")
+    UserPostProcessing::UserPostProcessing(): pipe_name("/tmp/mypipe.fifo"),
+                                              font_face(cv::FONT_HERSHEY_COMPLEX),
+                                              font_scale(1), thickness(2), text_offset(0)
     {
         try
         {
             fd = open(pipe_name.c_str(), O_WRONLY);
+            roll_text = "This camera is collecting information for the Aflex team. The footage captured by "
+                        "this camera is analyzed and filtered before finally sending the number of people "
+                        "that were present. The Aflex team will be the only group to access this data to "
+                        "determine if crosswalk light timing can be improved. The data collected from this "
+                        "camera will be held onto for 30 days by the team and then deleted. Thank you for "
+                        "helping us improve the city!";
         }
         catch (const std::exception& e)
         {
@@ -88,6 +125,7 @@ namespace op
         {
             // Random operation on data
             // cv::bitwise_not(datam.cvOutputData, datam.cvOutputData);
+
             const auto &poseKeypoints = datam.poseKeypoints;
             for (auto person = 0; person < poseKeypoints.getSize(0); person++) {
 
@@ -144,7 +182,7 @@ namespace op
             }
 
             int32_t num_people = poseKeypoints.getSize(0);
-            //printf("%d\n", poseKeypoints.getSize(0));
+            addText(datam.cvOutputData, num_people);
             write(fd, &num_people, sizeof(num_people));
 
         }
